@@ -28,7 +28,7 @@ class TrezviyMirWallpaperService : WallpaperService() {
         private val handler = Handler(Looper.getMainLooper())
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG)
         private var visible = false
-        private val stars = createStars(42)
+        private val stars = createStars(18)
 
         private val frameRunner = object : Runnable {
             override fun run() {
@@ -155,7 +155,7 @@ class TrezviyMirWallpaperService : WallpaperService() {
             canvas.clipRect(cx - radiusX, cy - radiusY, cx + radiusX, cy + 1f)
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = max(1f, w * 0.0017f)
-            paint.color = Color.argb(105, 58, 135, 255)
+            paint.color = Color.argb(88, 58, 135, 255)
             for (scale in floatArrayOf(0.34f, 0.68f)) {
                 canvas.drawOval(
                     RectF(cx - radiusX, cy - radiusY * scale, cx + radiusX, cy + radiusY * scale),
@@ -163,10 +163,10 @@ class TrezviyMirWallpaperService : WallpaperService() {
                 )
             }
 
-            paint.color = Color.argb(112, 132, 72, 255)
+            paint.color = Color.argb(90, 132, 72, 255)
             val rotation = -rotationPhase * 2f * PI.toFloat()
-            for (longitudeIndex in 0 until 12) {
-                val longitude = longitudeIndex * PI.toFloat() / 6f + rotation
+            for (longitudeIndex in 0 until 8) {
+                val longitude = longitudeIndex * PI.toFloat() / 4f + rotation
                 if (cos(longitude) <= 0f) continue
                 val path = Path()
                 for (step in 0..36) {
@@ -220,7 +220,7 @@ class TrezviyMirWallpaperService : WallpaperService() {
         ) {
             paint.style = Paint.Style.FILL
             paint.maskFilter = null
-            val glowRadius = if (drawCore) w * 0.026f else w * 0.082f
+            val glowRadius = if (drawCore) w * 0.046f else w * 0.095f
             paint.shader = RadialGradient(
                 x, y, glowRadius,
                 if (drawCore) {
@@ -228,17 +228,24 @@ class TrezviyMirWallpaperService : WallpaperService() {
                 } else {
                     intArrayOf(withAlpha(Color.WHITE, 210), withAlpha(color, 150), Color.TRANSPARENT)
                 },
-                if (drawCore) floatArrayOf(0f, 0.24f, 1f) else floatArrayOf(0f, 0.18f, 1f),
+                if (drawCore) floatArrayOf(0f, 0.12f, 1f) else floatArrayOf(0f, 0.16f, 1f),
                 Shader.TileMode.CLAMP
             )
             canvas.drawCircle(x, y, glowRadius, paint)
             paint.shader = null
 
             if (drawCore) {
+                paint.style = Paint.Style.STROKE
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.strokeWidth = max(1f, w * 0.0017f)
+                paint.color = withAlpha(Color.WHITE, 185)
+                paint.maskFilter = BlurMaskFilter(w * 0.006f, BlurMaskFilter.Blur.NORMAL)
+                canvas.drawLine(x - w * 0.018f, y, x + w * 0.018f, y, paint)
+                canvas.drawLine(x, y - w * 0.013f, x, y + w * 0.013f, paint)
+                paint.maskFilter = null
+                paint.style = Paint.Style.FILL
                 paint.color = Color.WHITE
-                paint.strokeWidth = max(1f, w * 0.0022f)
-                canvas.drawLine(x - w * 0.034f, y, x + w * 0.034f, y, paint)
-                canvas.drawLine(x, y - w * 0.022f, x, y + w * 0.022f, paint)
+                canvas.drawCircle(x, y, max(1.8f, w * 0.0045f), paint)
             }
         }
 
@@ -246,25 +253,18 @@ class TrezviyMirWallpaperService : WallpaperService() {
             paint.style = Paint.Style.FILL
             paint.textAlign = Paint.Align.CENTER
             paint.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            paint.textSize = fittedTextSize("Трезвый Мир", w * 0.90f, w * 0.128f)
+            paint.textSize = fittedTextSize("Трезвый Мир", w * 0.92f, w * 0.148f)
             paint.shader = LinearGradient(
                 w * 0.08f, 0f, w * 0.92f, 0f,
-                intArrayOf(Color.rgb(64, 247, 255), Color.rgb(31, 143, 255), Color.rgb(225, 80, 255)),
+                intArrayOf(Color.rgb(64, 247, 255), Color.rgb(28, 151, 255), Color.rgb(111, 91, 255)),
                 null,
                 Shader.TileMode.CLAMP
             )
             paint.maskFilter = BlurMaskFilter(w * 0.013f, BlurMaskFilter.Blur.NORMAL)
-            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.625f, paint)
+            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.615f, paint)
             paint.maskFilter = null
-            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.625f, paint)
+            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.615f, paint)
             paint.shader = null
-
-            paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            paint.textSize = w * 0.024f
-            paint.letterSpacing = 0.15f
-            paint.color = Color.argb(205, 159, 211, 242)
-            canvas.drawText("КОСМИЧЕСКАЯ ЗАСТАВКА", w * 0.5f, h * 0.655f, paint)
-            paint.letterSpacing = 0f
             paint.textAlign = Paint.Align.LEFT
         }
 

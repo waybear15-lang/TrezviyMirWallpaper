@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
+import java.time.LocalTime
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
@@ -69,11 +70,16 @@ class TrezviyMirWallpaperService : WallpaperService() {
         private fun render(canvas: Canvas, nowMs: Long) {
             val w = canvas.width.toFloat()
             val h = canvas.height.toFloat()
-            val phase = (nowMs % 18_000L) / 18_000f
+            val time = LocalTime.now()
+            val secondsOfDay = time.toSecondOfDay() + time.nano / 1_000_000_000f
+            // 06:00 is sunrise on the right/east edge. Negative screen-space
+            // angles move counter-clockwise: east -> zenith -> west -> nadir -> east.
+            val orbitPhase = ((secondsOfDay - 6f * 3600f + DAY_SECONDS) % DAY_SECONDS) / DAY_SECONDS
+            val rotationPhase = (nowMs % PLANET_ROTATION_MS) / PLANET_ROTATION_MS.toFloat()
             canvas.drawColor(Color.rgb(0, 1, 5))
             drawBackgroundAura(canvas, w, h)
             drawStars(canvas, w, h, nowMs)
-            drawPlanet(canvas, w, h, phase)
+            drawPlanet(canvas, w, h, orbitPhase, rotationPhase)
             drawBrand(canvas, w, h)
         }
 
@@ -102,60 +108,92 @@ class TrezviyMirWallpaperService : WallpaperService() {
             }
         }
 
-        private fun drawPlanet(canvas: Canvas, w: Float, h: Float, phase: Float) {
-            val radius = min(w * 0.43f, h * 0.205f)
+        private fun drawPlanet(
+            canvas: Canvas,
+            w: Float,
+            h: Float,
+            orbitPhase: Float,
+            rotationPhase: Float
+        ) {
+            // The reference uses a wide, slightly flattened globe: roughly one
+            // third of the screen width and fifteen percent of its height.
+            val radiusX = w * 0.33f
+            val radiusY = h * 0.155f
             val cx = w * 0.5f
-            val cy = h * 0.535f
-            val bounds = RectF(cx - radius, cy - radius, cx + radius, cy + radius)
+            val cy = h * 0.525f
+            val bounds = RectF(cx - radiusX, cy - radiusY, cx + radiusX, cy + radiusY)
+            val orbitAngle = -2.0 * PI * orbitPhase
+            val lightX = cx + cos(orbitAngle).toFloat() * radiusX
+            val lightY = cy + sin(orbitAngle).toFloat() * radiusY
+            val lightColor = blendColor(
+                Color.rgb(15, 205, 255),
+                Color.rgb(255, 58, 242),
+                ((lightX - (cx - radiusX)) / (radiusX * 2f)).coerceIn(0f, 1f)
+            )
+
+            // Draw the broad aura first. The black globe masks its inner half,
+            // so the light reads as travelling around the planet rather than across it.
+            drawOrbitGlow(canvas, lightX, lightY, lightColor, w, drawCore = false)
 
             paint.style = Paint.Style.FILL
             paint.shader = RadialGradient(
                 cx,
-                cy - radius * 0.55f,
-                radius * 1.25f,
-                intArrayOf(Color.rgb(14, 12, 48), Color.rgb(4, 5, 20), Color.rgb(0, 1, 6)),
+                cy - radiusY * 0.55f,
+                max(radiusX, radiusY) * 1.25f,
+                intArrayOf(Color.rgb(8, 9, 32), Color.rgb(2, 3, 14), Color.rgb(0, 1, 5)),
                 floatArrayOf(0f, 0.58f, 1f),
                 Shader.TileMode.CLAMP
             )
-            canvas.drawCircle(cx, cy, radius, paint)
+            canvas.drawOval(bounds, paint)
             paint.shader = null
 
-            // Subtle geometric grid gives this brand a globe rather than an eclipse.
+            // Only the upper grid is visible, matching the reference hemisphere.
+            // Meridians are projected from rotating longitudes, so the planet turns
+            // clockwise around its own vertical axis once every 12 minutes.
             canvas.save()
-            canvas.clipPath(Path().apply { addCircle(cx, cy, radius * 0.992f, Path.Direction.CW) })
+            canvas.clipPath(Path().apply { addOval(bounds, Path.Direction.CW) })
+            canvas.clipRect(cx - radiusX, cy - radiusY, cx + radiusX, cy + 1f)
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = max(1f, w * 0.0015f)
-            paint.color = Color.argb(72, 74, 139, 255)
+            paint.strokeWidth = max(1f, w * 0.0017f)
+            paint.color = Color.argb(105, 58, 135, 255)
             for (scale in floatArrayOf(0.34f, 0.68f)) {
                 canvas.drawOval(
-                    RectF(cx - radius, cy - radius * scale, cx + radius, cy + radius * scale),
+                    RectF(cx - radiusX, cy - radiusY * scale, cx + radiusX, cy + radiusY * scale),
                     paint
                 )
             }
-            paint.color = Color.argb(62, 186, 75, 255)
-            for (scale in floatArrayOf(0.38f, 0.72f)) {
-                canvas.drawOval(
-                    RectF(cx - radius * scale, cy - radius, cx + radius * scale, cy + radius),
-                    paint
-                )
+
+            paint.color = Color.argb(112, 132, 72, 255)
+            val rotation = -rotationPhase * 2f * PI.toFloat()
+            for (longitudeIndex in 0 until 12) {
+                val longitude = longitudeIndex * PI.toFloat() / 6f + rotation
+                if (cos(longitude) <= 0f) continue
+                val path = Path()
+                for (step in 0..36) {
+                    val latitude = step / 36f * PI.toFloat() / 2f
+                    val x = cx + radiusX * cos(latitude) * sin(longitude)
+                    val y = cy - radiusY * sin(latitude)
+                    if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                canvas.drawPath(path, paint)
             }
             canvas.restore()
 
-            // Wide glow under the razor-sharp cyan-to-magenta horizon.
+            // Bright reference-style cyan-to-magenta upper rim.
             paint.style = Paint.Style.STROKE
             paint.strokeCap = Paint.Cap.ROUND
-            paint.strokeWidth = w * 0.022f
-            paint.maskFilter = BlurMaskFilter(w * 0.024f, BlurMaskFilter.Blur.NORMAL)
+            paint.strokeWidth = w * 0.019f
+            paint.maskFilter = BlurMaskFilter(w * 0.021f, BlurMaskFilter.Blur.NORMAL)
             paint.shader = LinearGradient(
-                cx - radius, cy, cx + radius, cy,
-                intArrayOf(Color.rgb(0, 187, 255), Color.rgb(56, 96, 255), Color.rgb(239, 54, 255)),
+                cx - radiusX, cy, cx + radiusX, cy,
+                intArrayOf(Color.rgb(0, 220, 255), Color.rgb(62, 101, 255), Color.rgb(255, 59, 247)),
                 null,
                 Shader.TileMode.CLAMP
             )
             canvas.drawArc(bounds, 180f, 180f, false, paint)
 
             paint.maskFilter = null
-            paint.strokeWidth = max(2.2f, w * 0.006f)
+            paint.strokeWidth = max(2.4f, w * 0.0056f)
             canvas.drawArc(bounds, 180f, 180f, false, paint)
             paint.shader = null
 
@@ -169,45 +207,81 @@ class TrezviyMirWallpaperService : WallpaperService() {
             canvas.drawLine(0f, cy, w, cy, paint)
             paint.shader = null
 
-            drawOrbitingFlare(canvas, cx, cy, radius, phase, w)
+            drawOrbitGlow(canvas, lightX, lightY, lightColor, w, drawCore = true)
         }
 
-        private fun drawOrbitingFlare(canvas: Canvas, cx: Float, cy: Float, radius: Float, phase: Float, w: Float) {
-            val angle = PI + PI * phase
-            val x = cx + cos(angle).toFloat() * radius
-            val y = cy + sin(angle).toFloat() * radius
+        private fun drawOrbitGlow(
+            canvas: Canvas,
+            x: Float,
+            y: Float,
+            color: Int,
+            w: Float,
+            drawCore: Boolean
+        ) {
             paint.style = Paint.Style.FILL
+            paint.maskFilter = null
+            val glowRadius = if (drawCore) w * 0.026f else w * 0.082f
             paint.shader = RadialGradient(
-                x, y, w * 0.075f,
-                intArrayOf(Color.WHITE, Color.argb(210, 255, 91, 251), Color.TRANSPARENT),
-                floatArrayOf(0f, 0.17f, 1f),
+                x, y, glowRadius,
+                if (drawCore) {
+                    intArrayOf(Color.WHITE, withAlpha(color, 238), Color.TRANSPARENT)
+                } else {
+                    intArrayOf(withAlpha(Color.WHITE, 210), withAlpha(color, 150), Color.TRANSPARENT)
+                },
+                if (drawCore) floatArrayOf(0f, 0.24f, 1f) else floatArrayOf(0f, 0.18f, 1f),
                 Shader.TileMode.CLAMP
             )
-            canvas.drawCircle(x, y, w * 0.075f, paint)
+            canvas.drawCircle(x, y, glowRadius, paint)
             paint.shader = null
+
+            if (drawCore) {
+                paint.color = Color.WHITE
+                paint.strokeWidth = max(1f, w * 0.0022f)
+                canvas.drawLine(x - w * 0.034f, y, x + w * 0.034f, y, paint)
+                canvas.drawLine(x, y - w * 0.022f, x, y + w * 0.022f, paint)
+            }
         }
 
         private fun drawBrand(canvas: Canvas, w: Float, h: Float) {
             paint.style = Paint.Style.FILL
             paint.textAlign = Paint.Align.CENTER
             paint.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            paint.textSize = fittedTextSize("Трезвый Мир", w * 0.86f, w * 0.115f)
+            paint.textSize = fittedTextSize("Трезвый Мир", w * 0.90f, w * 0.128f)
             paint.shader = LinearGradient(
-                w * 0.12f, 0f, w * 0.88f, 0f,
-                intArrayOf(Color.rgb(62, 232, 255), Color.rgb(44, 136, 255), Color.rgb(209, 72, 255)),
+                w * 0.08f, 0f, w * 0.92f, 0f,
+                intArrayOf(Color.rgb(64, 247, 255), Color.rgb(31, 143, 255), Color.rgb(225, 80, 255)),
                 null,
                 Shader.TileMode.CLAMP
             )
-            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.675f, paint)
+            paint.maskFilter = BlurMaskFilter(w * 0.013f, BlurMaskFilter.Blur.NORMAL)
+            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.625f, paint)
+            paint.maskFilter = null
+            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.625f, paint)
             paint.shader = null
 
             paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            paint.textSize = w * 0.025f
+            paint.textSize = w * 0.024f
             paint.letterSpacing = 0.15f
-            paint.color = Color.argb(150, 151, 197, 229)
-            canvas.drawText("КОСМИЧЕСКАЯ ЗАСТАВКА", w * 0.5f, h * 0.705f, paint)
+            paint.color = Color.argb(205, 159, 211, 242)
+            canvas.drawText("КОСМИЧЕСКАЯ ЗАСТАВКА", w * 0.5f, h * 0.655f, paint)
             paint.letterSpacing = 0f
             paint.textAlign = Paint.Align.LEFT
+        }
+
+        private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(
+            alpha.coerceIn(0, 255),
+            Color.red(color),
+            Color.green(color),
+            Color.blue(color)
+        )
+
+        private fun blendColor(from: Int, to: Int, amount: Float): Int {
+            val t = amount.coerceIn(0f, 1f)
+            return Color.rgb(
+                (Color.red(from) + (Color.red(to) - Color.red(from)) * t).toInt(),
+                (Color.green(from) + (Color.green(to) - Color.green(from)) * t).toInt(),
+                (Color.blue(from) + (Color.blue(to) - Color.blue(from)) * t).toInt()
+            )
         }
 
         private fun fittedTextSize(text: String, maxWidth: Float, preferred: Float): Float {
@@ -235,7 +309,8 @@ class TrezviyMirWallpaperService : WallpaperService() {
     private data class Star(val x: Float, val y: Float, val size: Float)
 
     private companion object {
-        const val FRAME_DELAY_MS = 50L
+        const val FRAME_DELAY_MS = 100L
+        const val DAY_SECONDS = 86_400f
+        const val PLANET_ROTATION_MS = 12L * 60L * 1000L
     }
 }
-

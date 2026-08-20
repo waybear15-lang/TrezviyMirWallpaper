@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Трезвый Мир</string>
+    <string name="wallpaper_name">Трезвый Мир — космос</string>
+    <string name="wallpaper_description">Живая неоновая планета со звёздным небом для экрана блокировки.</string>
+    <string name="home_brand">Трезвый Мир</string>
+    <string name="home_kicker">КОСМИЧЕСКАЯ ЖИВАЯ ЗАСТАВКА</string>
+    <string name="home_description">Неоновый горизонт, мерцающие звёзды и движущийся световой импульс. Системные часы остаются поверх заставки и не дублируются.</string>
+    <string name="install_wallpaper">Установить живые обои</string>
+    <string name="lock_screen_note">На некоторых оболочках Android выбор только экрана блокировки появляется после нажатия «Установить обои» в системном окне.</string>
+</resources>

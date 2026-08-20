@@ -16,7 +16,7 @@
 
 ## Установка
 
-1. Установите `TrezviyMirWallpaper-1.2.0-debug.apk` на Android 9 или новее.
+1. Установите `TrezviyMirWallpaper-1.3.0-debug.apk` на Android 9 или новее.
 2. Откройте приложение «Трезвый Мир».
 3. Нажмите «Установить живые обои».
 4. В системном окне выберите экран блокировки, если оболочка телефона предлагает такой выбор.
@@ -38,4 +38,4 @@ APK появится в `app/build/outputs/apk/debug/app-debug.apk`.
 - package: `com.trezviymir.spacewallpaper`
 - minSdk: 28
 - targetSdk: 36
-- версия: 1.2.0
+- версия: 1.3.0

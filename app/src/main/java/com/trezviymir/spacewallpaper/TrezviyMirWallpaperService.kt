@@ -28,7 +28,19 @@ class TrezviyMirWallpaperService : WallpaperService() {
         private val handler = Handler(Looper.getMainLooper())
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG)
         private var visible = false
-        private val stars = createStars(18)
+        // Positions are taken from the reference artwork instead of randomized,
+        // so the sparse constellation remains compositionally identical.
+        private val stars = listOf(
+            Star(0.787f, 0.063f, 0.00145f),
+            Star(0.368f, 0.110f, 0.00155f),
+            Star(0.897f, 0.142f, 0.00135f),
+            Star(0.150f, 0.164f, 0.00145f),
+            Star(0.613f, 0.152f, 0.00155f),
+            Star(0.439f, 0.227f, 0.00160f),
+            Star(0.810f, 0.227f, 0.00140f),
+            Star(0.217f, 0.268f, 0.00150f),
+            Star(0.886f, 0.353f, 0.00145f)
+        )
 
         private val frameRunner = object : Runnable {
             override fun run() {
@@ -102,8 +114,8 @@ class TrezviyMirWallpaperService : WallpaperService() {
             paint.maskFilter = null
             stars.forEachIndexed { index, star ->
                 val pulse = 0.55f + 0.45f * sin(nowMs / 900.0 + index * 1.73).toFloat()
-                paint.color = Color.argb((90 + pulse * 165).toInt(), 213, 235, 255)
-                val radius = w * star.size * (0.78f + pulse * 0.22f)
+                paint.color = Color.argb((165 + pulse * 90).toInt(), 226, 242, 255)
+                val radius = w * star.size * (0.88f + pulse * 0.12f)
                 canvas.drawCircle(w * star.x, h * star.y, radius, paint)
             }
         }
@@ -118,9 +130,9 @@ class TrezviyMirWallpaperService : WallpaperService() {
             // The reference uses a wide, slightly flattened globe: roughly one
             // third of the screen width and fifteen percent of its height.
             val radiusX = w * 0.33f
-            val radiusY = h * 0.155f
+            val radiusY = h * 0.150f
             val cx = w * 0.5f
-            val cy = h * 0.525f
+            val cy = h * 0.522f
             val bounds = RectF(cx - radiusX, cy - radiusY, cx + radiusX, cy + radiusY)
             val orbitAngle = -2.0 * PI * orbitPhase
             val lightX = cx + cos(orbitAngle).toFloat() * radiusX
@@ -155,15 +167,15 @@ class TrezviyMirWallpaperService : WallpaperService() {
             canvas.clipRect(cx - radiusX, cy - radiusY, cx + radiusX, cy + 1f)
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = max(1f, w * 0.0017f)
-            paint.color = Color.argb(88, 58, 135, 255)
-            for (scale in floatArrayOf(0.34f, 0.68f)) {
+            paint.color = Color.argb(158, 58, 135, 255)
+            for (scale in floatArrayOf(0.38f, 0.72f)) {
                 canvas.drawOval(
                     RectF(cx - radiusX, cy - radiusY * scale, cx + radiusX, cy + radiusY * scale),
                     paint
                 )
             }
 
-            paint.color = Color.argb(90, 132, 72, 255)
+            paint.color = Color.argb(148, 132, 72, 255)
             val rotation = -rotationPhase * 2f * PI.toFloat()
             for (longitudeIndex in 0 until 8) {
                 val longitude = longitudeIndex * PI.toFloat() / 4f + rotation
@@ -182,8 +194,8 @@ class TrezviyMirWallpaperService : WallpaperService() {
             // Bright reference-style cyan-to-magenta upper rim.
             paint.style = Paint.Style.STROKE
             paint.strokeCap = Paint.Cap.ROUND
-            paint.strokeWidth = w * 0.019f
-            paint.maskFilter = BlurMaskFilter(w * 0.021f, BlurMaskFilter.Blur.NORMAL)
+            paint.strokeWidth = w * 0.029f
+            paint.maskFilter = BlurMaskFilter(w * 0.030f, BlurMaskFilter.Blur.NORMAL)
             paint.shader = LinearGradient(
                 cx - radiusX, cy, cx + radiusX, cy,
                 intArrayOf(Color.rgb(0, 220, 255), Color.rgb(62, 101, 255), Color.rgb(255, 59, 247)),
@@ -197,13 +209,18 @@ class TrezviyMirWallpaperService : WallpaperService() {
             canvas.drawArc(bounds, 180f, 180f, false, paint)
             paint.shader = null
 
-            paint.strokeWidth = max(1.5f, w * 0.003f)
+            // The reference has a continuous neon horizon across the full canvas.
+            paint.strokeWidth = max(2f, w * 0.008f)
+            paint.maskFilter = BlurMaskFilter(w * 0.012f, BlurMaskFilter.Blur.NORMAL)
             paint.shader = LinearGradient(
                 0f, cy, w, cy,
-                intArrayOf(Color.TRANSPARENT, Color.rgb(0, 211, 255), Color.rgb(123, 85, 255), Color.rgb(255, 58, 242), Color.TRANSPARENT),
+                intArrayOf(Color.rgb(0, 151, 255), Color.rgb(0, 225, 255), Color.rgb(95, 91, 255), Color.rgb(255, 57, 242), Color.rgb(173, 43, 255)),
                 floatArrayOf(0f, 0.18f, 0.5f, 0.82f, 1f),
                 Shader.TileMode.CLAMP
             )
+            canvas.drawLine(0f, cy, w, cy, paint)
+            paint.maskFilter = null
+            paint.strokeWidth = max(1.5f, w * 0.0032f)
             canvas.drawLine(0f, cy, w, cy, paint)
             paint.shader = null
 
@@ -220,15 +237,15 @@ class TrezviyMirWallpaperService : WallpaperService() {
         ) {
             paint.style = Paint.Style.FILL
             paint.maskFilter = null
-            val glowRadius = if (drawCore) w * 0.046f else w * 0.095f
+            val glowRadius = if (drawCore) w * 0.065f else w * 0.125f
             paint.shader = RadialGradient(
                 x, y, glowRadius,
                 if (drawCore) {
-                    intArrayOf(Color.WHITE, withAlpha(color, 238), Color.TRANSPARENT)
+                    intArrayOf(Color.WHITE, withAlpha(color, 252), Color.TRANSPARENT)
                 } else {
                     intArrayOf(withAlpha(Color.WHITE, 210), withAlpha(color, 150), Color.TRANSPARENT)
                 },
-                if (drawCore) floatArrayOf(0f, 0.12f, 1f) else floatArrayOf(0f, 0.16f, 1f),
+                if (drawCore) floatArrayOf(0f, 0.18f, 1f) else floatArrayOf(0f, 0.22f, 1f),
                 Shader.TileMode.CLAMP
             )
             canvas.drawCircle(x, y, glowRadius, paint)
@@ -237,34 +254,38 @@ class TrezviyMirWallpaperService : WallpaperService() {
             if (drawCore) {
                 paint.style = Paint.Style.STROKE
                 paint.strokeCap = Paint.Cap.ROUND
-                paint.strokeWidth = max(1f, w * 0.0017f)
-                paint.color = withAlpha(Color.WHITE, 185)
-                paint.maskFilter = BlurMaskFilter(w * 0.006f, BlurMaskFilter.Blur.NORMAL)
-                canvas.drawLine(x - w * 0.018f, y, x + w * 0.018f, y, paint)
-                canvas.drawLine(x, y - w * 0.013f, x, y + w * 0.013f, paint)
+                paint.strokeWidth = max(1f, w * 0.0022f)
+                paint.color = withAlpha(Color.WHITE, 220)
+                paint.maskFilter = BlurMaskFilter(w * 0.008f, BlurMaskFilter.Blur.NORMAL)
+                canvas.drawLine(x - w * 0.026f, y, x + w * 0.026f, y, paint)
+                canvas.drawLine(x, y - w * 0.019f, x, y + w * 0.019f, paint)
                 paint.maskFilter = null
                 paint.style = Paint.Style.FILL
                 paint.color = Color.WHITE
-                canvas.drawCircle(x, y, max(1.8f, w * 0.0045f), paint)
+                canvas.drawCircle(x, y, max(2.5f, w * 0.010f), paint)
             }
         }
 
         private fun drawBrand(canvas: Canvas, w: Float, h: Float) {
             paint.style = Paint.Style.FILL
             paint.textAlign = Paint.Align.CENTER
-            paint.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            paint.textSize = fittedTextSize("Трезвый Мир", w * 0.92f, w * 0.148f)
+            paint.typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            paint.textScaleX = 1f
+            paint.textSize = h * 0.072f
+            val titleWidth = paint.measureText("Трезвый Мир")
+            paint.textScaleX = (w * 0.865f / titleWidth).coerceAtMost(1f)
             paint.shader = LinearGradient(
                 w * 0.08f, 0f, w * 0.92f, 0f,
                 intArrayOf(Color.rgb(64, 247, 255), Color.rgb(28, 151, 255), Color.rgb(111, 91, 255)),
                 null,
                 Shader.TileMode.CLAMP
             )
-            paint.maskFilter = BlurMaskFilter(w * 0.013f, BlurMaskFilter.Blur.NORMAL)
-            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.615f, paint)
+            paint.maskFilter = BlurMaskFilter(w * 0.009f, BlurMaskFilter.Blur.NORMAL)
+            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.617f, paint)
             paint.maskFilter = null
-            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.615f, paint)
+            canvas.drawText("Трезвый Мир", w * 0.5f, h * 0.617f, paint)
             paint.shader = null
+            paint.textScaleX = 1f
             paint.textAlign = Paint.Align.LEFT
         }
 
@@ -284,26 +305,6 @@ class TrezviyMirWallpaperService : WallpaperService() {
             )
         }
 
-        private fun fittedTextSize(text: String, maxWidth: Float, preferred: Float): Float {
-            paint.textSize = preferred
-            val measured = paint.measureText(text)
-            return if (measured <= maxWidth) preferred else preferred * maxWidth / measured
-        }
-
-        private fun createStars(count: Int): List<Star> {
-            var seed = 0x51A7C0DEL
-            fun next(): Float {
-                seed = (seed * 1_103_515_245L + 12_345L) and 0x7fffffffL
-                return seed.toFloat() / 0x7fffffffL.toFloat()
-            }
-            return List(count) {
-                Star(
-                    x = 0.055f + next() * 0.89f,
-                    y = 0.035f + next() * 0.39f,
-                    size = 0.0012f + next() * 0.0022f
-                )
-            }
-        }
     }
 
     private data class Star(val x: Float, val y: Float, val size: Float)

@@ -27,6 +27,6 @@ jobs:
         run: ./gradlew assembleDebug
       - uses: actions/upload-artifact@v7
         with:
-          name: TrezviyMirWallpaper-1.2.0-debug
+          name: TrezviyMirWallpaper-1.3.0-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
